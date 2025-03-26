@@ -1,0 +1,28 @@
+/* 自定义滚动条 */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bs-light);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--bs-gray-400);
+  border-radius: 4px;
+}
+
+/* 卡片样式增强 */
+.card {
+  box-shadow: 0 2px 8px rgba(0,0,0,.08);
+  transition: transform .2s;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+}
+
+/* 表格优化 */
+.table-hover tbody tr {
+  transition: background-color .15s;
+}

@@ -1,0 +1,28 @@
+{{ template "header" . }}
+
+<div class="col-sm-9 col-sm-offset-3 col-md-10 col-md-offset-2 main">
+    <h1 class="page-header">Uhub渠道信息</h1>
+    <h2>{{.uhub_uniq_total}}</h2>
+
+</div>
+<script>
+    $(function () {
+        var currentArea = {{.area}}
+        if (currentArea == null ) {
+            currentArea = "index"
+        }
+        var found = false
+        var li = $(".items").children("li")
+        for (var i = 0; i < li.length; i++) {
+            if (currentArea.indexOf(li[i].id)!=-1) {
+                li[i].className = "active"
+                found = true
+                break
+            }
+        }
+        if (!found) {
+            $('#index').className = "active"
+        }
+    })
+</script>
+{{template "footer"}}

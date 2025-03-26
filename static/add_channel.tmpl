@@ -1,0 +1,251 @@
+<!-- 修改新增按钮触发自定义函数 -->
+<button type="button" class="btn btn-primary" onclick="showAddChannelModal()">
+    新增渠道
+</button>
+
+<!-- 添加在页面底部 -->
+<div class="toast-container position-fixed top-0 end-0 p-3">
+    <div id="successToast" class="toast" role="alert">
+        <div class="toast-header bg-success text-white">
+            <strong class="me-auto">成功</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+        </div>
+        <div class="toast-body"></div>
+    </div>
+    <div id="errorToast" class="toast" role="alert">
+        <div class="toast-header bg-danger text-white">
+            <strong class="me-auto">错误</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+        </div>
+        <div class="toast-body"></div>
+    </div>
+</div>
+
+<!-- 确认新增的模态框 -->
+<div id="confirmAddChannelModal" class="modal fade" tabindex="-1" style="z-index: 1061;">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title">⚠️ 确认新增</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>确定要新增这个渠道吗？</p>
+                <div id="confirmContent"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-danger" onclick="submitNewChannel()">确认新增</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 新增渠道的模态框 -->
+<div id="addChannelModal" class="modal fade" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header bg-light">
+                <h5 class="modal-title text-primary fs-4">
+                    <i class="fas fa-plus-circle me-2"></i>新增渠道信息
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body px-4">
+                <form id="addChannelForm" class="needs-validation" novalidate>
+                    <!-- 两列布局 -->
+                    <div class="row g-4">
+                        <!-- 左侧列 -->
+                        <div class="col-md-6">
+                            <div class="form-floating">
+                                <input type="text" 
+                                     class="form-control input-glass" 
+                                     id="newUniqCloudChannelID" 
+                                     placeholder=" "
+                                     required>
+                                <label for="newUniqCloudChannelID" class="text-muted">
+                                    <i class="fas fa-id-card me-2"></i>uniq_cloud_channel_id
+                                </label>
+                                <div class="invalid-feedback">请填写渠道ID</div>
+                            </div>
+
+                            <div class="form-floating mt-3">
+                                <input type="text" 
+                                     class="form-control input-glass" 
+                                     id="newUniqCloudDomain" 
+                                     placeholder=" "
+                                     required>
+                                <label for="newUniqCloudDomain" class="text-muted">
+                                    <i class="fas fa-globe me-2"></i>uniq_cloud_domain
+                                </label>
+                                <div class="invalid-feedback">请填写域名</div>
+                            </div>
+
+                            <div class="mt-3">
+                                <label class="form-label text-muted">
+                                    <i class="fas fa-certificate me-2"></i>uniq_cloud_domain_crt
+                                </label>
+                                <textarea class="form-control input-glass" 
+                                        id="newUniqCloudDomainCrt" 
+                                        rows="4"
+                                        placeholder="请输入证书内容..."
+                                        required></textarea>
+                                <div class="invalid-feedback">证书内容不能为空</div>
+                            </div>
+                        </div>
+
+                        <!-- 右侧列 -->
+                        <div class="col-md-6">
+                            <div class="form-floating">
+                                <input type="text" 
+                                     class="form-control input-glass" 
+                                     id="newUniqType" 
+                                     placeholder=" "
+                                     required>
+                                <label for="newUniqType" class="text-muted">
+                                    <i class="fas fa-tag me-2"></i>uniq_type
+                                </label>
+                                <div class="invalid-feedback">请填写类型</div>
+                            </div>
+
+                            <div class="form-floating mt-3">
+                                <input type="text" 
+                                     class="form-control input-glass" 
+                                     id="newAllRegion" 
+                                     placeholder="true/false"
+                                     required>
+                                <label for="newAllRegion" class="text-muted">
+                                    <i class="fas fa-globe-americas me-2"></i>all_region
+                                </label>
+                                <div class="invalid-feedback">请输入 true 或 false</div>
+                            </div>
+
+                            <div class="form-floating mt-3">
+                                <input type="text" 
+                                     class="form-control input-glass" 
+                                     id="newDeployRegion" 
+                                     placeholder=" "
+                                     required>
+                                <label for="newDeployRegion" class="text-muted">
+                                    <i class="fas fa-map-marker-alt me-2"></i>deploy_region
+                                </label>
+                                <div class="invalid-feedback">请填写部署区域</div>
+                            </div>
+
+                            <div class="mt-3">
+                                <label class="form-label text-muted">
+                                    <i class="fas fa-key me-2"></i>uniq_cloud_domain_key
+                                </label>
+                                <textarea class="form-control input-glass" 
+                                        id="newUniqCloudDomainKey" 
+                                        rows="4"
+                                        placeholder="请输入密钥内容..."
+                                        required></textarea>
+                                <div class="invalid-feedback">密钥内容不能为空</div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" 
+                      class="btn btn-outline-secondary rounded-pill px-4"
+                      data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>关闭
+                </button>
+                <button type="button" 
+                      class="btn btn-primary rounded-pill px-4 shadow-sm"
+                      onclick="validateAndConfirm()">
+                    <i class="fas fa-save me-2"></i>保存信息
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<script src="/static/bootstrap/js/bootstrap.min.js"></script>
+<script>
+// 初始化 Toast
+document.addEventListener('DOMContentLoaded', function() {
+    const toastElList = [].slice.call(document.querySelectorAll('.toast'))
+    toastElList.map(function(toastEl) {
+        return new bootstrap.Toast(toastEl, {
+            autohide: true,
+            delay: 3000
+        })
+    })
+})
+
+// 显示新增模态框
+function showAddChannelModal() {
+    const modal = new bootstrap.Modal('#addChannelModal')
+    modal.show()
+}
+
+// 验证表单并显示确认对话框
+function validateAndConfirm() {
+    const form = document.getElementById('addChannelForm')
+    if (!form.checkValidity()) {
+        form.classList.add('was-validated')
+        return
+    }
+
+    // 收集预览数据
+    const previewData = {
+        channelID: $('#newUniqCloudChannelID').val(),
+        domain: $('#newUniqCloudDomain').val()
+    }
+    $('#confirmContent').html(`
+        <div class="alert alert-info mt-3">
+            <strong>渠道ID：</strong>${previewData.channelID}<br>
+            <strong>域名：</strong>${previewData.domain}
+        </div>
+    `)
+
+    // 切换模态框
+    const addModal = bootstrap.Modal.getInstance('#addChannelModal')
+    const confirmModal = new bootstrap.Modal('#confirmAddChannelModal')
+    //addModal.hide()
+    confirmModal.show()
+}
+
+// 提交数据
+function submitNewChannel() {
+    const formData = {
+        uniqCloudChannelID: $('#newUniqCloudChannelID').val(),
+        uniqCloudDomain: $('#newUniqCloudDomain').val(),
+        uniqCloudDomainCrt: $('#newUniqCloudDomainCrt').val(),
+        uniqCloudDomainKey: $('#newUniqCloudDomainKey').val(),
+        uniqType: $('#newUniqType').val(),
+        allRegion: $('#newAllRegion').val(),
+        deployRegion: $('#newDeployRegion').val()
+    }
+
+    $.ajax({
+        url: '/channel/create',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(formData),
+        success: function(response) {
+            // 关闭确认模态框
+            const confirmModal = bootstrap.Modal.getInstance('#confirmAddChannelModal')
+            confirmModal.hide()
+
+            // 显示成功 Toast
+            $('#successToast .toast-body').text('渠道新增成功')
+            bootstrap.Toast.getInstance('#successToast').show()
+
+            // 清空表单
+            document.getElementById('addChannelForm').reset()
+            document.getElementById('addChannelForm').classList.remove('was-validated')
+
+        },
+        error: function(xhr) {
+            // 显示错误 Toast
+            $('#errorToast .toast-body').text('新增失败: ' + (xhr.responseJSON?.message || '服务器错误'))
+            bootstrap.Toast.getInstance('#errorToast').show()
+        }
+    })
+}
+</script>

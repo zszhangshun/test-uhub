@@ -1,0 +1,436 @@
+{{template "header" .}}
+<div class="container-fluid p-0">
+
+    <!-- 内容头部 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h2 mb-1">Uhub渠道信息</h1>
+            <p class="lead text-muted mb-0">当前渠道总数：{{.uhub_uniq_total}}</p>
+        </div>
+        {{template "add_channel.tmpl"}}
+    </div>
+
+    <!-- 搜索栏 -->
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-lg-4">
+            <div class="input-group">
+                <input type="search" 
+                     class="form-control searchContent" 
+                     placeholder="输入渠道ID进行搜索">
+                <button class="btn btn-outline-secondary searchBtn" type="button">
+                    <i class="fas fa-search">Go</i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+<!-- 数据表格 -->
+<div class="card shadow-sm">
+    <div class="card-body p-2" style="padding: 0;">
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead class="bg-light sticky-top">
+                    <tr>
+                        <th data-field="uniqCloudChannelID" style="width:15%;">渠道ID</th>
+                        <th data-field="uniqCloudDomain" style="width:15%;">域名</th>
+                        <th data-field="uniqCloudDomainCrt" style="width:20%;">证书</th>
+                        <th data-field="uniqCloudDomainKey" style="width:20%;">密钥</th>
+                        <th data-field="uniqType" style="width:8%;">类型</th>
+                        <th data-field="allRegion" style="width:8%;">全区域</th>
+                        <th data-field="deployRegion" style="width:8%;">部署区域</th>
+                        <th style="width:15%%;">操作</th>
+                    </tr>
+                </thead>
+                <tbody id="uniq_channel_infos" class="align-middle">
+                    {{range $index, $item := .uniq_channel_infos}}
+                    <tr data-channel-id="{{$item.UniqCloudChannelID}}">
+                        <td class="uniqCloudChannelID">{{$item.UniqCloudChannelID}}</td>
+                        <td class="uniqCloudDomain">{{$item.UniqCloudDomain}}</td>
+                        <td>
+                            <input type="text" 
+                                 value="{{$item.UniqCloudDomainCrt}}" 
+                                 class="form-control form-control-sm bg-white"
+                                 onclick="showFullContent(this)"
+                                 readonly>
+                        </td>
+                        <td>
+                            <input type="text" 
+                                 value="{{$item.UniqCloudDomainKey}}"
+                                 class="form-control form-control-sm bg-white"
+                                 onclick="showFullContent(this)"
+                                 readonly>
+                        </td>
+                        <td class="uniqType">{{$item.UniqType}}</td>
+                        <td class="allRegion">{{$item.AllRegion}}</td>
+                        <td class="deployRegion">{{$item.DeployRegion}}</td>
+                        <td style="display: none;">
+                        <input type="hidden" 
+                            class="channelStatus" 
+                            value="{{ $item.ChannelStatus }}">
+                        </td>
+                        <td>
+                        <button class="btn btn-sm btn-outline-primary" onclick="openEditModal(this)"><i class="fas fa-edit"></i>更新</button>
+                        <button class="btn btn-sm btn-outline-primary" onclick="confirmDelete(this)"><i class="fas fa-edit"></i>删除</button>
+                        </td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+    <!-- 分页 -->
+    <script src="static/bootstrap/js/bootstrapPager.js"></script>
+    <div class="mt-4">
+        <script>
+            document.write(Pager({
+                totalCount: {{.uhub_uniq_total}},
+                pageSize: 20,
+                currentPage: 1
+            }));
+        </script>
+    </div>
+
+    <!-- 模态框 -->
+    <div id="fullContentModal" class="modal fade" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">完整内容</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <pre class="bg-light p-3 rounded"><code id="fullContentText"></code></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 编辑模态框 -->
+    <div id="editModal" class="modal fade" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">编辑渠道信息</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editForm">
+                        <div class="form-group">
+                            <label for="uniqCloudChannelID">uniq_cloud_channel_id</label>
+                            <input type="text" class="form-control" id="uniqCloudChannelID" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label for="uniqCloudDomain">uniq_cloud_domain</label>
+                            <input type="text" class="form-control" id="uniqCloudDomain">
+                        </div>
+                        <div class="form-group">
+                            <label for="uniqCloudDomainCrt">uniq_cloud_domain_crt</label>
+                            <textarea class="form-control" id="uniqCloudDomainCrt"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="uniqCloudDomainKey">uniq_cloud_domain_key</label>
+                            <textarea class="form-control" id="uniqCloudDomainKey"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="uniqType">uniq_type</label>
+                            <input type="text" class="form-control" id="uniqType">
+                        </div>
+                        <div class="form-group">
+                            <label for="allRegion">all_region</label>
+                            <input type="text" class="form-control" id="allRegion" placeholder="请输入 true 或 false">
+                        </div>
+                        <div class="form-group">
+                            <label for="deployRegion">deploy_region</label>
+                            <input type="text" class="form-control" id="deployRegion">
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                    <button type="button" class="btn btn-primary" onclick="submitEdit()">保存更改</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<!-- 确认变更模态框 -->
+    <div class="modal fade" id="confirmModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-warning">
+                    <h5 class="modal-title">⚠️ 确认以下变更</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        请仔细核对以下变更内容
+                    </div>
+                    <div id="confirmChangesContent"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-danger" id="confirmSaveChangesButton">
+                        <i class="fas fa-check-circle me-2"></i>确认保存
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<!-- Toast 容器 -->
+<div class="toast-container position-fixed top-0 end-0 p-3">
+    <div id="successToast" class="toast" role="alert">
+        <div class="toast-header bg-success text-white">
+            <strong class="me-auto">成功</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+        </div>
+        <div class="toast-body"></div>
+    </div>
+    <div id="errorToast" class="toast" role="alert">
+        <div class="toast-header bg-danger text-white">
+            <strong class="me-auto">错误</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+        </div>
+        <div class="toast-body"></div>
+    </div>
+</div>
+
+<!-- 加载指示器 -->
+<div id="loadingIndicator" style="display: none;">
+    <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+    </div>
+</div>
+
+<!-- 删除确认模态框 -->
+<div class="modal fade" id="deleteConfirmModal">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">确认删除</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-danger" onclick="performDelete()">
+                    <i class="fas fa-check me-2"></i>确认删除
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="/static/bootstrap/js/bootstrap.min.js"></script>
+<script>
+// 初始化 Toast
+document.addEventListener('DOMContentLoaded', function() {
+    const toastElList = [].slice.call(document.querySelectorAll('.toast'))
+    toastElList.map(function(toastEl) {
+        return new bootstrap.Toast(toastEl, {
+            autohide: true,
+            delay: 3000
+        })
+    })
+})
+
+// 显示提示函数
+function showToast(type, message) {
+    const toastEl = document.getElementById(`${type}Toast`)
+    const toastBody = toastEl.querySelector('.toast-body')
+    toastBody.textContent = message
+    bootstrap.Toast.getInstance(toastEl).show()
+}
+
+// 证书查看功能
+function showFullContent(inputElement) {
+    const modal = new bootstrap.Modal('#fullContentModal')
+    document.getElementById('fullContentText').textContent = inputElement.value
+    modal.show()
+}
+
+// 编辑功能
+let originalData = {};
+
+function openEditModal(button) {
+    const $row = $(button).closest('tr');
+    const $headers = $('.table thead th[data-field]');
+    
+    originalData = {};
+// 显式获取 channelStatus（独立于表头遍历）
+    originalData.channelStatus = $row.find('.channelStatus').val().trim();
+    $headers.each(function() {
+        const $th = $(this);
+        const fieldName = $th.data('field');
+        const cellIndex = $th.index();
+        const $td = $row.find(`td:eq(${cellIndex})`);
+        
+        const cellValue = $td.find('input').length ? 
+            $td.find('input').val() : 
+            $td.text().trim();
+        
+        const $formField = $(`#editModal #${fieldName}`);
+        if ($formField.length) {
+            $formField.val(cellValue);
+            originalData[fieldName] = cellValue;
+        }
+    });
+
+    $('#editModal').modal('show');
+}
+
+function submitEdit() {
+    const formData = {};
+    $('#editModal')
+        .find('input, textarea, select')
+        .not('[type="button"], [type="submit"]')
+        .each(function() {
+            const $field = $(this);
+            const fieldName = $field.attr('id');
+            if (fieldName) {
+                formData[fieldName] = $field.val().trim();
+            }
+        });
+
+    const changes = {};
+    Object.keys(formData).forEach(key => {
+        const newValue = formData[key];
+        const oldValue = originalData[key];
+        if (newValue !== oldValue) {
+            changes[key] = `${oldValue} → ${newValue}`;
+        }
+    });
+
+    if (Object.keys(changes).length === 0) {
+        showToast('error', '没有检测到变更');
+        return;
+    }
+
+    if (!formData.uniqCloudChannelID) {
+        formData.uniqCloudChannelID = originalData.uniqCloudChannelID;
+    }
+        formData.channelStatus = originalData.channelStatus;
+
+    showChangesModal(changes, formData);
+}
+
+function showChangesModal(changes, formData) {
+    const $modal = $('#confirmModal');
+    let html = '<ul class="list-unstyled">';
+    
+    Object.entries(changes).forEach(([field, value]) => {
+        html += `<li class="mb-2"><strong>${field}:</strong><br>${escapeHtml(value)}</li>`;
+    });
+    
+    html += '</ul>';
+    $('#confirmChangesContent').html(html);
+
+    $('#confirmSaveChangesButton').off('click').on('click', function() {
+        $modal.modal('hide');
+        performFinalSave(formData);
+    });
+
+    $modal.modal('show');
+}
+
+function performFinalSave(formData) {
+    showLoadingIndicator(true);
+    
+    $.ajax({
+        url: `/channel/update/${formData.uniqCloudChannelID}`,
+        type: 'POST',
+        headers: { 
+            'X-Confirm': 'true',
+            'Content-Type': 'application/json' 
+        },
+        data: JSON.stringify(formData),
+        success: function(response) {
+            if (response.code === 200) {
+                showToast('success', '更新成功');
+            } else {
+                showToast('error', response.message || '保存失败');
+            }
+        },
+        error: function(xhr) {
+            handleAjaxError(xhr);
+        },
+        complete: () => showLoadingIndicator(false)
+    });
+}
+
+// 加载指示器控制
+function showLoadingIndicator(show) {
+    const loader = document.getElementById('loadingIndicator');
+    loader.style.display = show ? 'block' : 'none';
+}
+
+function handleAjaxError(xhr) {
+    const errorMsg = xhr.responseJSON?.error || '服务器错误';
+    showToast('error', errorMsg);
+}
+
+// 安全转义
+function escapeHtml(unsafe) {
+    return unsafe
+         .replace(/&/g, "&amp;")
+         .replace(/</g, "&lt;")
+         .replace(/>/g, "&gt;")
+         .replace(/"/g, "&quot;")
+         .replace(/'/g, "&#039;");
+}
+
+// 删除功能
+function confirmDelete(button) {
+    const $row = $(button).closest('tr');
+    const channelId = $row.find('.uniqCloudChannelID').text().trim();
+    
+    const modal = new bootstrap.Modal(document.getElementById('deleteConfirmModal'));
+    
+    $('#deleteConfirmModal .modal-body').html(`
+        确定要删除渠道 <strong>${escapeHtml(channelId)}</strong> 吗？
+        <div class="mt-2 text-muted">该操作将会把状态标记为已删除</div>
+    `);
+    
+    $('#deleteConfirmModal').data('channelId', channelId);
+    modal.show();
+}
+
+function performDelete() {
+    const channelId = $('#deleteConfirmModal').data('channelId');
+    showLoadingIndicator(true);
+    
+    $.ajax({
+        url: `/channel/delete/${channelId}`,
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({'channel_id': channelId,'delete_status': "1"}),
+        success: function(response) {
+            if (response.code === 200) {
+                showToast('success', '删除成功');
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                showToast('error', '操作失败');
+            }
+        },
+        error: (xhr) => {
+            handleAjaxError(xhr);
+            $('#deleteConfirmModal').modal('hide');
+        },
+        complete: () => showLoadingIndicator(false)
+    });
+}
+
+// 搜索功能
+document.querySelector('.searchBtn').addEventListener('click', function() {
+    const keyword = document.querySelector('.searchContent').value.trim().toLowerCase();
+    document.querySelectorAll('#uniq_channel_infos tr').forEach(tr => {
+        const channelId = tr.dataset.channelId.toLowerCase()
+        tr.style.display = channelId.includes(keyword) ? '' : 'none'
+    });
+});
+</script>
+
+{{template "footer"}}

@@ -1,0 +1,30 @@
+/* 居中表格 */
+.card-body {
+    display: flex;
+    justify-content: center;
+    align-items: center; /* 垂直居中 */
+}
+
+.table-responsive {
+    width: 100%;
+    overflow-x: auto; /* 水平滚动条 */
+}
+
+.table {
+    width: 100%;
+    text-align: center; /* 文本居中 */
+}
+
+th, td {
+    text-align: center;
+    vertical-align: middle; /* 垂直居中 */
+}
+
+input[type="text"] {
+    text-align: center; /* 输入框内文本居中 */
+}
+
+/* 自定义样式 */
+.table-container {
+    max-width: 100%; /* 确保表格宽度不超过父容器 */
+}

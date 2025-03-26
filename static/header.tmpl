@@ -1,0 +1,156 @@
+{{define "header"}}
+<!DOCTYPE html>
+<html lang="zh-CN" data-bs-theme="auto">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Uhub 渠道管理系统">
+    <title>{{block "title" .}}Uhub 后台管理系统{{end}}</title>
+    <link href="/static/bootstrap/css/dashboard.css" rel="stylesheet">
+    <link href="/static/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <script src="/static/jquery/jquery-3.7.1.min.js"></script>
+    <script src="/static/js/theme-switcher.js" defer></script>
+
+<style>
+.form-group input[readonly] {
+    background-color: #f0f0f0; /* 更浅的颜色表示只读 */
+    cursor: not-allowed; /* 改变鼠标指针样式 */
+}
+    :root {
+        --sidebar-width: 280px;
+        --content-max-width: 1600px;
+    }
+    /* 表格响应式及边框样式 */
+.table-responsive {
+    font-size: 1em; /* 根据需要调整字体大小 */
+    overflow-x: auto;
+    width: 100%;
+    margin: 0; /* 确保无额外的外边距 */
+    margin-bottom: 1rem; /* 在表格下方添加间距 */
+}
+.table {
+    table-layout: fixed; /* 固定表格布局 */
+        border-collapse: separate; /* 必须设置为separate */
+    border-spacing: 0 1px; /* 第一个值是水平间距，第二个值是垂直间距 */
+    width: 100%; /* 确保表格宽度适应其容器 */
+}
+/* 假设您的表格有8列，每列占总宽度的1/8 */
+.table td, .table th {
+    width: 12.5%; /* 每个单元格占据12.5%的宽度 */
+    line-height: 1.2;
+    padding: 5px;
+}
+    .table-bordered td,
+    .table-bordered th {
+        border: 1px solid #dee2e6; /* 设置边框颜色 */
+    }
+
+    th, td {
+        padding: 15px; /* 增加单元格的内边距 */
+    }
+
+    /* 确保表格内容不会溢出 */
+    .table-responsive::-webkit-scrollbar {
+        height: 5px;
+    }
+
+    .table-responsive::-webkit-scrollbar-thumb {
+        background-color: #ddd;
+        border-radius: 10px;
+    }
+
+    .table-responsive::-webkit-scrollbar-track {
+        box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.3);
+    }
+
+    /* 媒体查询优化 */
+    @media (max-width: 768px) {
+        .table td, .table th {
+            padding: 10px; /* 减少内边距以节省空间 */
+        }
+
+        .table td, .table th {
+            font-size: 0.9em; /* 调整字体大小 */
+        }
+    }
+
+    /* 侧边栏与主内容区样式 */
+    .sidebar {
+        width: var(--sidebar-width);
+        height: 100vh;
+        position: fixed;
+        top: 0;
+        left: 0;
+        box-shadow: 2px 0 8px rgba(0,0,0,.1);
+        transition: transform .3s ease;
+        z-index: 1035;
+    }
+
+    .main-content {
+        margin-left: var(--sidebar-width); /* 根据是否显示侧边栏调整此值 */
+        padding: 0; /* 可选：如果需要完全去除内外边距 */
+        transition: margin .3s ease;
+        min-height: 100vh;
+    }
+
+    .content-container {
+        width: 100%;
+        margin: 0; /* 设置为0以消除默认的外边距 */
+        padding: 0; /* 如果需要的话，也可以设置为0来消除内边距 */
+    }
+
+    @media (max-width: 992px) {
+        .sidebar {
+            transform: translateX(-100%);
+        }
+        .sidebar.active {
+            transform: translateX(0);
+        }
+        .main-content {
+            padding: 1rem; /* 适当调整内边距 */
+        }
+    }
+</style>
+</head>
+
+<body class="d-flex">
+    <!-- 侧边栏 -->
+    <nav class="sidebar bg-dark text-white p-3">
+        <div class="d-flex flex-column h-100">
+            <div class="mb-4">
+                <a href="/" class="d-flex align-items-center text-white text-decoration-none">
+                    <span class="fs-5">Uhub 管理平台</span>
+                </a>
+            </div>
+
+            <ul class="nav nav-pills flex-column mb-auto">
+                <li class="nav-item">
+                    <a href="/" class="nav-link text-white {{if eq .CurrentMenu "overview"}}active{{end}}">
+                        <i class="fas fa-tachometer-alt me-2"></i>
+                        系统概览
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/channel" class="nav-link text-white {{if eq .CurrentMenu "channel"}}active{{end}}">
+                        <i class="fas fa-network-wired me-2"></i>
+                        渠道管理
+                        <span class="badge bg-primary rounded-pill ms-2">{{.ChannelCount}}</span>
+                    </a>
+                </li>
+            </ul>
+
+            <div class="mt-auto border-top pt-3">
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="darkModeSwitch">
+                    <label class="form-check-label" for="darkModeSwitch">暗黑模式</label>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主内容区 -->
+    <main class="main-content">
+        <!-- 主内容按钮 -->
+        <div class="content-container">
+            {{/* 内容区由具体模板填充 */}}
+{{end}}
