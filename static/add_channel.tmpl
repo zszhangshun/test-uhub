@@ -213,7 +213,7 @@ function validateAndConfirm() {
 // 提交数据
 function submitNewChannel() {
     const formData = {
-        uniqCloudChannelID: $('#newUniqCloudChannelID').val(),
+        uniqCloudChannelID: parseInt($('#newUniqCloudChannelID').val(), 10), // 转换为整数
         uniqCloudDomain: $('#newUniqCloudDomain').val(),
         uniqCloudDomainCrt: $('#newUniqCloudDomainCrt').val(),
         uniqCloudDomainKey: $('#newUniqCloudDomainKey').val(),
@@ -223,7 +223,7 @@ function submitNewChannel() {
     }
 
     $.ajax({
-        url: '/channel/create',
+        url: `/channel/create/${formData.uniqCloudChannelID}`,
         type: 'POST',
         contentType: 'application/json',
         data: JSON.stringify(formData),

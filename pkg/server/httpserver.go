@@ -62,8 +62,8 @@ func (s *Server) setRoute(h *api.Handle) {
 	s.Engine.GET("/", h.IndexHtml)
 	s.Engine.LoadHTMLGlob("static/*.tmpl")
 	s.Engine.GET("/channel", h.ChannelTotal)
-	s.Engine.POST("/channel/update/:id", h.UpdateChannelinfo())
-	s.Engine.POST("/channel/create", h.CreateNewChannel)
+	s.Engine.POST("/channel/update/:id", h.ValidateParamsCheck, h.UpdateChannelinfo())
+	s.Engine.POST("/channel/create/:id", h.ValidateParamsCheck, h.CreateNewChannel)
 	s.Engine.POST("/channel/delete/:id", h.DeleteChannel)
 }
 
