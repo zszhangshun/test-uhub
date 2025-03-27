@@ -291,7 +291,12 @@ function submitEdit() {
             const $field = $(this);
             const fieldName = $field.attr('id');
             if (fieldName) {
-                formData[fieldName] = $field.val().trim();
+                 // 根据字段名决定是否需要类型转换
+                if (fieldName === 'uniqCloudChannelID') {
+                    formData[fieldName] = parseInt($field.val().trim(), 10); // 转换为整数
+                } else {
+                    formData[fieldName] = $field.val().trim();
+                }
             }
         });
 
@@ -299,7 +304,12 @@ function submitEdit() {
     Object.keys(formData).forEach(key => {
         const newValue = formData[key];
         const oldValue = originalData[key];
-        if (newValue !== oldValue) {
+        // 对于 uniqCloudChannelID，确保比较时类型一致
+        if (key === 'uniqCloudChannelID') {
+            if (parseInt(newValue, 10) !== parseInt(oldValue, 10)) {
+                changes[key] = `${oldValue} → ${newValue}`;
+            }
+        } else if (newValue !== oldValue) {
             changes[key] = `${oldValue} → ${newValue}`;
         }
     });
@@ -309,8 +319,9 @@ function submitEdit() {
         return;
     }
 
+    // 确保 uniqCloudChannelID 不为空
     if (!formData.uniqCloudChannelID) {
-        formData.uniqCloudChannelID = originalData.uniqCloudChannelID;
+        formData.uniqCloudChannelID = parseInt(originalData.uniqCloudChannelID, 10);
     }
         formData.channelStatus = originalData.channelStatus;
 

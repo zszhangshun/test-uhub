@@ -13,6 +13,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang/glog"
+	"gorm.io/gorm"
 )
 
 const (
@@ -111,33 +112,62 @@ func (h *Handle) applyChanges(changes map[string]string, id string) (err error) 
 
 }
 
+// 参数验证:
+func (h *Handle) ValidateParamsCheck(ctx *gin.Context) {
+	var updateInfo uniqinfo.UhubUniqChannelInfo
+	if err := ctx.ShouldBindJSON(&updateInfo); err != nil {
+		message := fmt.Sprintf("请求解析失败: %v", err)
+		glog.Errorf(message)
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"code":    400,
+			"message": message,
+			"changes": nil,
+		})
+		return
+	}
+	ctx.Set("updateInfo", updateInfo)
+	ctx.Next()
+}
+
 // 跟新渠道信息
 func (h *Handle) UpdateChannelinfo() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		isConfirm := ctx.GetHeader("X-Confirm") == "true"
 		id := ctx.Param("id")
-		// 1. 解析请求
-		var updateInfo *uniqinfo.UhubUniqChannelInfo
-		if err := ctx.ShouldBindJSON(&updateInfo); err != nil {
-			glog.Errorf("请求解析失败: %v", err)
-			ctx.JSON(http.StatusBadRequest, gin.H{
-				"code":    400,
-				"message": "无效的请求格式",
+		// 1. 获取更新信息
+		// 从上下文中获取已解析的数据
+		updateInfoInterface, exists := ctx.Get("updateInfo")
+		if !exists {
+			glog.Error("上下文中未找到updateInfo")
+			ctx.JSON(http.StatusInternalServerError, gin.H{
+				"code":    500,
+				"message": "内部错误",
 				"changes": nil,
 			})
 			return
 		}
-		fmt.Println("updateInfo:", updateInfo)
+		updateInfo, ok := updateInfoInterface.(uniqinfo.UhubUniqChannelInfo)
+		if !ok {
+			message := fmt.Sprintf("类型断言失败: %v", updateInfoInterface)
+			glog.Error(message)
+			ctx.JSON(http.StatusInternalServerError, gin.H{
+				"code":    500,
+				"message": "内部错误:" + message,
+				"changes": nil,
+			})
+			return
+		}
 		// 2. 检查变化
-		changes, err := h.checkChanges(updateInfo)
+		changes, err := h.checkChanges(&updateInfo)
 		fmt.Println("changes:", changes)
 		if !isConfirm {
 			if err != nil {
-				glog.Errorf("变化检查失败: %v", err)
+				message := fmt.Sprintf("变化检查失败: %v", err)
+				glog.Errorf(message)
 				ctx.JSON(http.StatusInternalServerError, gin.H{
-					"Code":    500,
-					"Message": "无法检查数据变化",
-					"Changes": nil,
+					"code":    500,
+					"message": message,
+					"changes": nil,
 				})
 				return
 			}
@@ -230,51 +260,133 @@ func (h *Handle) ChannelTotal(ctx *gin.Context) {
 	})
 }
 
+func (h *Handle) checkUniqExists(id int) (status bool, err error) {
+	var result uniqinfo.UhubUniqChannelInfo
+	err = h.Store.DBClient().Table(h.Config.DB.Table).
+		Where("uniq_cloud_channel_id = ?", id).
+		//过滤status为0的数据，0为删除状态
+		Where("status != 0").
+		First(&result).Error
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		message := fmt.Sprintf("check channel exists failed due to err:%s", err.Error())
+		return false, errors.New(message)
+	}
+	if result.UniqCloudChannelID != 0 {
+		message := fmt.Sprintf("check channel exists %d", id)
+		return false, errors.New(message)
+
+	}
+	return true, nil
+}
+
 // 创建新渠道
 func (h *Handle) CreateNewChannel(ctx *gin.Context) {
-	// 开启事务
-	tx := h.Store.DBClient().Begin()
+	var err error
+	var tx *gorm.DB
+
 	defer func() {
 		if r := recover(); r != nil {
-			tx.Rollback()
+			if tx != nil {
+				tx.Rollback()
+			}
+			msg := fmt.Sprintf("存储新渠道失败，原因:%s", r)
+			glog.Error(msg)
+			// 设置标志变量为失败状态
+			err = errors.New(msg)
+			ctx.JSON(http.StatusInternalServerError, gin.H{
+				"code":    500,
+				"message": err.Error(),
+			})
+
+			return
+		} else {
+			response := gin.H{
+				"message": "Channel added resposeSentfully",
+			}
+			ctx.JSON(http.StatusOK, response)
+			return
 		}
 	}()
-	var newChannel uniqinfo.UhubUniqChannelInfo
-	if err := ctx.ShouldBindJSON(&newChannel); err != nil {
-		msg := fmt.Sprintf("create new channel params feild due to err:%s", err.Error())
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"error": msg,
+
+	updateInfoInterface, exists := ctx.Get("updateInfo")
+	if !exists {
+		msg := "上下文中未找到updateInfo"
+		glog.Error(msg)
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"code":    500,
+			"message": msg,
+			"changes": nil,
 		})
-		log.Println("Error decoding JSON:", err)
+
 		return
 	}
+
+	newChannel, ok := updateInfoInterface.(uniqinfo.UhubUniqChannelInfo)
+	if !ok {
+		message := fmt.Sprintf("类型断言失败: %v", updateInfoInterface)
+		glog.Error(message)
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"code":    500,
+			"message": "内部错误:" + message,
+			"changes": nil,
+		})
+
+		return
+	}
+
 	// 新增渠道状态设置为1
 	if newChannel.ChannelStatus == "" {
 		newChannel.ChannelStatus = "1"
 	}
-	err := h.Store.DBClient().Table(h.Config.DB.Table).Create(newChannel).Error
-	if err != nil {
-		msg := fmt.Sprintf("create new channel failed due to err:%s", err.Error())
-		ctx.JSON(404, gin.H{
-			"error": msg,
-		})
-		log.Println(":", err)
-		return
 
-	}
-	if err := tx.Commit().Error; err != nil {
-		msg := fmt.Sprintf("create new channel failed due to err:%s", err.Error())
-		ctx.JSON(404, gin.H{
-			"error": msg,
+	ok, err = h.checkUniqExists(newChannel.UniqCloudChannelID)
+	if err != nil {
+		message := fmt.Sprintf("无法创建渠道，原因:%s", err.Error())
+		ctx.JSON(http.StatusConflict, gin.H{
+			"code":    http.StatusConflict,
+			"message": message,
 		})
-		log.Println(":", err)
+
 		return
 	}
-	// 返回成功的响应
-	response := gin.H{
-		"message": "Channel added successfully",
+	if !ok {
+		msg := fmt.Sprintf("检查渠道是否存在失败 id :%d", newChannel.UniqCloudChannelID)
+		glog.Error(msg)
+		ctx.JSON(http.StatusConflict, gin.H{
+			"code":    http.StatusConflict,
+			"message": msg,
+		})
+
+		return
 	}
-	ctx.JSON(http.StatusOK, response)
+
+	// 开启事务
+	tx = h.Store.DBClient().Begin()
+
+	// 使用事务进行数据库操作
+	if err = tx.Table(h.Config.DB.Table).Create(&newChannel).Error; err != nil {
+		tx.Rollback()
+		msg := fmt.Sprintf("创建新渠道失败，原因:%s", err.Error())
+		glog.Error(msg)
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"code":    500,
+			"message": msg,
+		})
+
+		return
+	}
+
+	if err = tx.Commit().Error; err != nil {
+		tx.Rollback()
+		msg := fmt.Sprintf("提交事务失败，原因:%s", err.Error())
+		glog.Error(msg)
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"code":    500,
+			"message": msg,
+		})
+
+		return
+	}
 }
 
 // 删除渠道
@@ -314,9 +426,4 @@ func (h *Handle) DeleteChannel(ctx *gin.Context) {
 	}
 	h.FlushVaule()
 	ctx.JSON(http.StatusOK, response)
-}
-
-func (h *Handle) CheckUniqInfoParam(info *uniqinfo.UhubUniqChannelInfo) error {
-
-	return nil
 }
