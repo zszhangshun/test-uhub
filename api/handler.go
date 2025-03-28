@@ -3,7 +3,6 @@ package api
 import (
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"reflect"
 	"strconv"
@@ -23,7 +22,7 @@ const (
 )
 
 type DeleteChannelResponse struct {
-	ChannelID    string `json:"channel_id"`
+	ChannelID    int    `json:"channel_id"`
 	DeleteStatus string `json:"delete_status"`
 }
 type Handle struct {
@@ -77,14 +76,7 @@ func (h *Handle) checkChanges(leastInfoinfo *uniqinfo.UhubUniqChannelInfo) (chan
 }
 
 // 应用变化
-func (h *Handle) applyChanges(changes map[string]string, id string) (err error) {
-	// 开启事务
-	tx := h.Store.DBClient().Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-	}()
+func (h *Handle) applyChanges(changes map[string]string, id int) (err error) {
 	// 构建更新map
 	st := uniqinfo.UhubUniqChannelInfo{}
 	updates := make(map[string]interface{})
@@ -96,18 +88,12 @@ func (h *Handle) applyChanges(changes map[string]string, id string) (err error) 
 	}
 
 	// 批量更新
-	if err := tx.Table(h.Config.DB.Table).
-		Where("uniq_cloud_channel_id = ?", id).
-		Updates(updates).Error; err != nil {
-		tx.Rollback()
-		return fmt.Errorf("更新失败: %w", err)
+	err = h.Store.Updates(updates, id)
+	if err != nil {
+		msg := fmt.Errorf("更新渠道信息失败:%s", err.Error())
+		glog.Error(msg)
+		return msg
 	}
-
-	// 提交事务
-	if err := tx.Commit().Error; err != nil {
-		return fmt.Errorf("事务提交失败: %w", err)
-	}
-
 	return nil
 
 }
@@ -133,7 +119,18 @@ func (h *Handle) ValidateParamsCheck(ctx *gin.Context) {
 func (h *Handle) UpdateChannelinfo() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		isConfirm := ctx.GetHeader("X-Confirm") == "true"
-		id := ctx.Param("id")
+		queryId := ctx.Param("id")
+		id, err := strconv.Atoi(queryId)
+		if err != nil {
+			message := fmt.Sprintf("id 转换失败: %v", err)
+			glog.Error(message)
+			ctx.JSON(http.StatusBadRequest, gin.H{
+				"code":    400,
+				"message": message,
+				"changes": nil,
+			})
+			return
+		}
 		// 1. 获取更新信息
 		// 从上下文中获取已解析的数据
 		updateInfoInterface, exists := ctx.Get("updateInfo")
@@ -172,8 +169,8 @@ func (h *Handle) UpdateChannelinfo() gin.HandlerFunc {
 				return
 			}
 		}
-		fmt.Println("len:", len(changes))
 		if len(changes) < 1 {
+			glog.Info("数据无变化")
 			ctx.JSON(http.StatusOK, gin.H{
 				"code":    204,
 				"message": "数据无变化",
@@ -360,33 +357,16 @@ func (h *Handle) CreateNewChannel(ctx *gin.Context) {
 		return
 	}
 
-	// 开启事务
-	tx = h.Store.DBClient().Begin()
-
-	// 使用事务进行数据库操作
-	if err = tx.Table(h.Config.DB.Table).Create(&newChannel).Error; err != nil {
-		tx.Rollback()
-		msg := fmt.Sprintf("创建新渠道失败，原因:%s", err.Error())
-		glog.Error(msg)
+	//执行数据库操作
+	err = h.Store.Create(&newChannel)
+	if err != nil {
+		msg := fmt.Sprintf("create channel failed with error: %v", err)
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"code":    500,
 			"message": msg,
 		})
-
-		return
 	}
-
-	if err = tx.Commit().Error; err != nil {
-		tx.Rollback()
-		msg := fmt.Sprintf("提交事务失败，原因:%s", err.Error())
-		glog.Error(msg)
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"code":    500,
-			"message": msg,
-		})
-
-		return
-	}
+	return
 }
 
 // 删除渠道
@@ -400,30 +380,33 @@ func (h *Handle) DeleteChannel(ctx *gin.Context) {
 	}
 	var req *DeleteChannelResponse
 	if err := ctx.ShouldBindJSON(&req); err != nil {
+		msg := fmt.Sprintf("json  Mashal failed,err: %s", err)
 		ctx.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error()})
+			"code":    400,
+			"message": msg,
+		})
 		return
 	}
 	if req.DeleteStatus != "true" {
-		log.Printf("Begion delete channel  %s", req.ChannelID)
-		err := h.Store.DBClient().Table(h.Config.DB.Table).Where("uniq_cloud_channel_id = ?", id).Update("status", 0).Error
+		glog.Info("Begion delete channel  %s", req.ChannelID)
+		err := h.Store.Delete(req.ChannelID)
 		if err != nil {
-			msg := fmt.Sprintf("delete channel failed due to err:%s", err.Error())
-			ctx.JSON(404, gin.H{
-				"code":  404,
-				"error": msg,
+			msg := fmt.Sprintf("Delete channel  %d failed,err: %s", req.ChannelID, err)
+			glog.Error(msg)
+			ctx.JSON(http.StatusInternalServerError, gin.H{
+				"code":    500,
+				"message": msg,
 			})
-			log.Printf("Delete channel  %s failed,err:%s", req.ChannelID, err)
 			return
 		}
-		log.Printf("Delete channel  %s suceessful", req.ChannelID)
-	}
 
-	// 返回成功的响应
-	response := gin.H{
-		"message": "Channel deleted successfully",
-		"code":    200,
 	}
+	msg := fmt.Sprintf("Delete channel  %d suceessful", req.ChannelID)
+	glog.Info(msg)
+	// 返回成功的响应
 	h.FlushVaule()
-	ctx.JSON(http.StatusOK, response)
+	ctx.JSON(http.StatusOK, gin.H{
+		"message": msg,
+		"code":    200,
+	})
 }

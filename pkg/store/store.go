@@ -115,3 +115,102 @@ func (c *Client) Flush(allInfo *uniqinfo.UniqInfos) error {
 func (c *Client) FlushVaule() {
 	flush <- true
 }
+
+func (c *Client) Updates(update map[string]interface{}, id int) (err error) {
+	// 开启事务
+	tx := c.dbClient.Begin()
+	if err := tx.Error; err != nil {
+		return fmt.Errorf("begin transaction failed: %w", err)
+	}
+	// 捕获 panic并回滚事务
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			msg := fmt.Sprintf("Update panic recovered: %s", r)
+			glog.Error(msg)
+		}
+	}()
+
+	// 执行数据库操作
+	if err = tx.Table(c.tableName).Where("uniq_cloud_channel_id = ?", id).
+		Updates(update).Error; err != nil {
+		tx.Rollback()
+		msg := fmt.Errorf("update channel failed, channelId [%d],due to %w", id, err)
+		glog.Error(msg)
+		return msg
+	}
+	// 提交事务
+	if commitErr := tx.Commit().Error; commitErr != nil {
+		msg := fmt.Errorf("commit channel transaction failed channelId [%d],due to  %w", id, commitErr)
+		glog.Error(msg)
+		return msg
+	}
+
+	return nil
+}
+
+func (c *Client) Delete(id int) error {
+	tx := c.dbClient.Begin()
+	if err := tx.Error; err != nil {
+		return fmt.Errorf("begin transaction failed: %w", err)
+	}
+	// 捕获 panic并回滚事务
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			msg := fmt.Sprintf("Update panic recovered: %s", r)
+			glog.Error(msg)
+		}
+	}()
+	// 执行数据库操作
+	err := tx.Table(c.tableName).Where("uniq_cloud_channel_id = ?", id).
+		Update("status", 0).Error
+	if err != nil {
+		tx.Rollback()
+		msg := fmt.Errorf("delete channel failed, channelId [%d],due to %w", id, err)
+		glog.Error(msg)
+		return msg
+	}
+	// 提交事务
+	if commitErr := tx.Commit().Error; commitErr != nil {
+		tx.Rollback()
+		msg := fmt.Errorf("commit channel transaction failed channelId [%d],due to  %w", id, commitErr)
+		glog.Error(msg)
+		return msg
+	}
+
+	return nil
+
+}
+
+func (c *Client) Create(value interface{}) error {
+	tx := c.dbClient.Begin()
+	if err := tx.Error; err != nil {
+		return fmt.Errorf("begin transaction failed: %w", err)
+	}
+	// 捕获 panic并回滚事务
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			msg := fmt.Sprintf("Update panic recovered: %s", r)
+			glog.Error(msg)
+		}
+	}()
+	// 执行数据库操作
+	err := tx.Table(c.tableName).Create(value).Error
+	if err != nil {
+		tx.Rollback()
+		msg := fmt.Errorf("create channel failed, due to %w", err)
+		glog.Error(msg)
+		return msg
+	}
+	// 提交事务
+	commitErr := tx.Commit().Error
+	if commitErr != nil {
+		tx.Rollback()
+		msg := fmt.Errorf("commit channel transaction failed, due to  %w", commitErr)
+		glog.Error(msg)
+		return msg
+	}
+	return nil
+}

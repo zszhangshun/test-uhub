@@ -385,6 +385,10 @@ function handleAjaxError(xhr) {
 
 // 安全转义
 function escapeHtml(unsafe) {
+     if (typeof unsafe !== 'string') {
+        console.error('Attempting to escape non-string value:', unsafe);
+        return '';
+    }
     return unsafe
          .replace(/&/g, "&amp;")
          .replace(/</g, "&lt;")
@@ -396,7 +400,7 @@ function escapeHtml(unsafe) {
 // 删除功能
 function confirmDelete(button) {
     const $row = $(button).closest('tr');
-    const channelId = $row.find('.uniqCloudChannelID').text().trim();
+    const channelId = parseInt($row.find('.uniqCloudChannelID').text().trim(), 10);
     
     const modal = new bootstrap.Modal(document.getElementById('deleteConfirmModal'));
     

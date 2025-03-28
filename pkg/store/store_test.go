@@ -1,36 +1,33 @@
 package store
 
-// import (
-// 	"fmt"
-// 	"test/pkg/config"
-// 	"test/pkg/uniqinfo"
-// 	"testing"
-// )
-// func TestStoreGet(t *testing.T) {
-//     // 使用相对路径或环境变量来提高移植性
-//     cfg := config.NewConfig()
-// 	err := cfg.Parse("/Users/user/test/test-xx/config/config.json")
-//     if err != nil {
-//         t.Fatalf("parse config file failed: %v", err)
-//     }
+import (
+	"fmt"
+	"test/pkg/config"
+	"testing"
+)
 
-//     db, err := New(cfg.DB.User, cfg.DB.Password, cfg.DB.Host, cfg.DB.Port, cfg.DB.Database)
-//     if err != nil {
-//         t.Fatalf("init db failed: %v", err)
-//     }
-//     client := NewClient(db, cfg.DB.Table)
-//     // 定义一个具体的结构体来接收数据
-//     var dst uniqinfo.UhubUniqChannelInfo
-//     err = client.Get("*",&dst)
-//     if err != nil {
-//         t.Errorf("Get() error = %v", err)
-//         return
-//     }
+func TestStore(t *testing.T) {
+	// 使用相对路径或环境变量来提高移植性
+	cfg := config.NewConfig()
+	err := cfg.Parse("/Users/user/test/test-xx/config/config.json")
+	if err != nil {
+		t.Fatalf("parse config file failed: %v", err)
+	}
 
-//     t.Logf("Get() result = %+v", dst)
-
-//     // 进行一些基本的验证
-//     if dst.UniqCloudChannelID!="" {
-//        fmt.Println(dst)
-//     }
-// }
+	db, err := New(cfg.DB.User, cfg.DB.Password, cfg.DB.Host, cfg.DB.Port, cfg.DB.Database)
+	if err != nil {
+		t.Fatalf("init db failed: %v", err)
+	}
+	client := NewClient(db, cfg.DB.Table)
+	update := map[string]interface{}{
+		"uniq_cloud_domain":     "iop",
+		"uniq_cloud_domain_crt": "iop",
+	}
+	id := 22
+	err = client.Updates(update, id)
+	if err != nil {
+		fmt.Println("更新失败:", err)
+	} else {
+		fmt.Println("更新成功")
+	}
+}

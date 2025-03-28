@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -13,9 +14,16 @@ import (
 	"test/pkg/store"
 )
 
+var ConfigPath *string
+
+func init() {
+	ConfigPath = flag.String("c", "config/config.json", "config file path")
+	flag.Parse()
+}
 func main() {
 	cfg := config.NewConfig()
-	err := cfg.Parse("/Users/user/test/test-xx/config/config.json")
+	cfgPath := *ConfigPath
+	err := cfg.Parse(cfgPath)
 	if err != nil {
 		log.Fatal("parse config file failed:", err)
 	}
