@@ -6,23 +6,5 @@
 
 </div>
 <script>
-    $(function () {
-        var currentArea = {{.area}}
-        if (currentArea == null ) {
-            currentArea = "index"
-        }
-        var found = false
-        var li = $(".items").children("li")
-        for (var i = 0; i < li.length; i++) {
-            if (currentArea.indexOf(li[i].id)!=-1) {
-                li[i].className = "active"
-                found = true
-                break
-            }
-        }
-        if (!found) {
-            $('#index').className = "active"
-        }
-    })
 </script>
 {{template "footer"}}
