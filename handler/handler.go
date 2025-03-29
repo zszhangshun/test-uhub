@@ -1,18 +1,31 @@
 package api
 
 import (
+	"bytes"
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"fmt"
+	"io"
+	"log"
 	"net/http"
 	"reflect"
 	"strconv"
 	"test/pkg/config"
 	"test/pkg/store"
 	"test/pkg/uniqinfo"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang/glog"
 	"gorm.io/gorm"
+)
+
+var (
+	ErrRequestBodyEmpty   = errors.New("请求体为空")
+	ErrInvalidContentType = errors.New("无效的 Content-Type")
 )
 
 type DeleteChannelResponse struct {
@@ -113,18 +126,35 @@ func (h *Handle) Authentication(ctx *gin.Context) {
 
 // 参数验证:
 func (h *Handle) ValidateParamsCheck(ctx *gin.Context) {
-	var updateInfo uniqinfo.UhubUniqChannelInfo
-	if err := ctx.ShouldBindJSON(&updateInfo); err != nil {
+	// 首先读取整个请求体
+	bodyBytes, err := io.ReadAll(ctx.Request.Body)
+	// 将读取的数据重新赋值给 ctx.Request.Body
+	if err != nil {
+		msg := fmt.Errorf("读取请求体失败: %v", err)
+		glog.Error(msg)
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"code":    400,
+			"message": msg,
+			"changes": nil,
+		})
+		return
+		return
+	}
+
+	// 将读取的数据重新赋值给 ctx.Request.Body，以便后续处理
+	ctx.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+	var channelInfo uniqinfo.UhubUniqChannelInfo
+	if err := ctx.ShouldBindJSON(&channelInfo); err != nil {
 		message := fmt.Sprintf("请求解析失败: %v", err)
 		glog.Errorf(message)
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"code":    400,
 			"message": message,
-			"changes": nil,
 		})
 		return
 	}
-	ctx.Set("updateInfo", updateInfo)
+
+	ctx.Set("channelInfoSave", channelInfo)
 	ctx.Next()
 }
 
@@ -145,30 +175,21 @@ func (h *Handle) UpdateChannelinfo() gin.HandlerFunc {
 			return
 		}
 		// 1. 获取更新信息
-		// 从上下文中获取已解析的数据
-		updateInfoInterface, exists := ctx.Get("updateInfo")
-		if !exists {
-			glog.Error("上下文中未找到updateInfo")
+		channelInfo, err := h.GetRequestBody(ctx)
+		if err != nil {
+			msg := fmt.Sprintf("获取新渠道信息失败：%s", err)
+			glog.Error(msg)
 			ctx.JSON(http.StatusInternalServerError, gin.H{
 				"code":    500,
-				"message": "内部错误",
+				"message": msg,
 				"changes": nil,
 			})
+
 			return
 		}
-		updateInfo, ok := updateInfoInterface.(uniqinfo.UhubUniqChannelInfo)
-		if !ok {
-			message := fmt.Sprintf("类型断言失败: %v", updateInfoInterface)
-			glog.Error(message)
-			ctx.JSON(http.StatusInternalServerError, gin.H{
-				"code":    500,
-				"message": "内部错误:" + message,
-				"changes": nil,
-			})
-			return
-		}
+
 		// 2. 检查变化
-		changes, err := h.checkChanges(&updateInfo)
+		changes, err := h.checkChanges(channelInfo)
 		fmt.Println("changes:", changes)
 		if !isConfirm {
 			if err != nil {
@@ -188,6 +209,16 @@ func (h *Handle) UpdateChannelinfo() gin.HandlerFunc {
 				"code":    204,
 				"message": "数据无变化",
 				"changes": map[string]string{},
+			})
+			return
+		}
+		// 检查证书有效性
+		err = h.checkCertAndKey(ctx)
+		if err != nil {
+			msg := fmt.Sprintf("检查证书有效性失败，原因:%s", err)
+			ctx.JSON(http.StatusBadRequest, gin.H{
+				"code":    404,
+				"message": msg,
 			})
 			return
 		}
@@ -291,9 +322,10 @@ func (h *Handle) checkUniqExists(id int) (status bool, err error) {
 // 创建新渠道
 func (h *Handle) CreateNewChannel(ctx *gin.Context) {
 	success := true
-	updateInfoInterface, exists := ctx.Get("updateInfo")
-	if !exists {
-		msg := "上下文中未找到updateInfo"
+	//updateInfoInterface, exists := ctx.Get("updateInfo")
+	newChannel, err := h.GetRequestBody(ctx)
+	if err != nil {
+		msg := fmt.Sprintf("获取新渠道信息失败：%s", err)
 		glog.Error(msg)
 		success = false
 		ctx.JSON(http.StatusInternalServerError, gin.H{
@@ -304,20 +336,7 @@ func (h *Handle) CreateNewChannel(ctx *gin.Context) {
 
 		return
 	}
-
-	newChannel, ok := updateInfoInterface.(uniqinfo.UhubUniqChannelInfo)
-	if !ok {
-		success = false
-		message := fmt.Sprintf("类型断言失败: %v", updateInfoInterface)
-		glog.Error(message)
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"code":    500,
-			"message": "内部错误:" + message,
-			"changes": nil,
-		})
-
-		return
-	}
+	//newChannel, ok := updateInfoInterface.(uniqinfo.UhubUniqChannelInfo)
 
 	// 新增渠道状态设置为1
 	if newChannel.ChannelStatus == "" {
@@ -346,7 +365,17 @@ func (h *Handle) CreateNewChannel(ctx *gin.Context) {
 
 		return
 	}
-
+	//检查证书有效性
+	err = h.checkCertAndKey(ctx)
+	if err != nil {
+		success = false
+		msg := fmt.Sprintf("检查证书有效性失败，原因:%s", err)
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"code":    404,
+			"message": msg,
+		})
+		return
+	}
 	//执行数据库操作
 	err = h.Store.Create(&newChannel)
 	if err != nil {
@@ -406,4 +435,110 @@ func (h *Handle) DeleteChannel(ctx *gin.Context) {
 		"message": msg,
 		"code":    200,
 	})
+}
+
+// 检查cert和key文件的有效性
+func (h *Handle) checkCertAndKey(ctx *gin.Context) error {
+	channelInfo, err := h.GetRequestBody(ctx)
+	if err != nil {
+		message := fmt.Errorf("验证证书时，获取渠道信息失败: %v", err)
+		log.Println(message)
+		return message
+	}
+
+	cert := channelInfo.UniqCloudDomainCrt
+	key := channelInfo.UniqCloudDomainKey
+	if cert == "" || key == "" {
+		message := fmt.Errorf("渠道信息中未找到证书或私钥")
+		log.Println(message)
+		return message
+	}
+
+	// 由于cert和key是字符串形式的证书和密钥，我们需要先将它们写入临时文件或者使用字节流处理
+	// 这里假设cert和key是以PEM格式的字符串存储
+	certBytes := []byte(cert)
+	keyBytes := []byte(key)
+
+	// 使用临时文件或直接从内存中加载证书和私钥
+	certificate, err := tls.X509KeyPair(certBytes, keyBytes)
+	if err != nil {
+		msg := fmt.Errorf("无法解析证书或私钥: %v", err)
+		glog.Error(msg)
+		return msg
+	}
+
+	// 解析证书以获取详细信息
+	block, _ := pem.Decode(certificate.Certificate[0])
+	if block == nil {
+		msg := fmt.Errorf("无法解码证书数据")
+		glog.Error(msg)
+		return msg
+	}
+	x509Cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		msg := fmt.Errorf("解析证书失败: %v", err)
+		glog.Error(msg)
+		return msg
+
+	}
+
+	// 检查证书有效期
+	now := time.Now()
+	if now.Before(x509Cert.NotBefore) {
+		msg := fmt.Errorf("证书未生效，有效期从: %v 开始", x509Cert.NotBefore)
+		glog.Error(msg)
+		return msg
+
+	}
+	if now.After(x509Cert.NotAfter) {
+		msg := fmt.Errorf("证书已过期，有效期至: %v", x509Cert.NotAfter)
+		glog.Error(msg)
+		return msg
+	}
+	fmt.Printf("证书有效，有效期: %v 至 %v\n", x509Cert.NotBefore, x509Cert.NotAfter)
+
+	// 打印确认消息
+	msg := fmt.Sprintf("%d 证书和私钥匹配", channelInfo.UniqCloudChannelID)
+	glog.Info(msg)
+
+	return nil
+}
+
+// GetRequestBody 从请求体中读取原始字节数据
+func (h *Handle) GetRequestBody(ctx *gin.Context) (channelInfo *uniqinfo.UhubUniqChannelInfo, err error) {
+	// 1. 读取请求体
+	body, err := io.ReadAll(ctx.Request.Body)
+	ctx.Request.Body = io.NopCloser(bytes.NewBuffer(body))
+	if err != nil {
+		// 返回自定义错误响应
+		var errMsg string
+		switch {
+		case errors.Is(err, ErrRequestBodyEmpty):
+			errMsg = "请求体为空，请提供有效的渠道信息"
+		// case errors.Is(err, ErrInvalidContentType):
+		// 	errMsg = "无效的 Content-Type，期望 application/json"
+		default:
+			errMsg = "无法解析请求体，请检查请求格式"
+		}
+		return nil, errors.New(errMsg)
+	}
+	// 2. 检查请求体是否为空
+	if len(body) == 0 {
+		msg := "请求体为空"
+		return nil, errors.New(msg)
+	}
+
+	// 3. 可选：验证 Content-Type（例如 JSON 格式）
+	// if ctx.Request.Header.Get("Content-Type") != "application/json" {
+	//     return nil, fmt.Errorf("无效的 Content-Type，期望 application/json")
+	// }
+	err = json.Unmarshal(body, &channelInfo)
+	if err != nil {
+		//message := fmt.Sprintf("类型断言失败: %v", updateInfoInterface)
+		msg := fmt.Errorf("请求体无法转换： %s", err)
+		glog.Error(msg)
+
+		return nil, msg
+	}
+	return channelInfo, nil
 }

@@ -41,8 +41,8 @@ func (s *Server) routerGroup(h *handler.Handle) {
 	v1.POST("/channel/flush", h.FlushVaule())
 	//v1.GET("/", h.IndexHtml)
 	v1.GET("/", h.ChannelTotal)
-	v1.POST("/channel/update/:id", h.ValidateParamsCheck, h.UpdateChannelinfo())
-	v1.POST("/channel/create/:id", h.ValidateParamsCheck, h.CreateNewChannel)
+	v1.POST("/channel/update/:id", h.UpdateChannelinfo())
+	v1.POST("/channel/create/:id", h.CreateNewChannel)
 	v1.POST("/channel/delete/:id", h.DeleteChannel)
 
 }

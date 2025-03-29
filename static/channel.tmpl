@@ -366,6 +366,7 @@ function performFinalSave(formData) {
             }
         },
         error: function(xhr) {
+
             handleAjaxError(xhr);
         },
         complete: () => showLoadingIndicator(false)
@@ -379,7 +380,7 @@ function showLoadingIndicator(show) {
 }
 
 function handleAjaxError(xhr) {
-    const errorMsg = xhr.responseJSON?.error || '服务器错误';
+    const errorMsg = xhr.responseJSON?.message || '服务器错误';
     showToast('error', errorMsg);
 }
 
