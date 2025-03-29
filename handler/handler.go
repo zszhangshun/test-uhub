@@ -127,34 +127,31 @@ func (h *Handle) Authentication(ctx *gin.Context) {
 // 参数验证:
 func (h *Handle) ValidateParamsCheck(ctx *gin.Context) {
 	// 首先读取整个请求体
-	bodyBytes, err := io.ReadAll(ctx.Request.Body)
-	// 将读取的数据重新赋值给 ctx.Request.Body
+	bodyBytes, err := ctx.GetRawData()
 	if err != nil {
 		msg := fmt.Errorf("读取请求体失败: %v", err)
 		glog.Error(msg)
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"code":    400,
-			"message": msg,
-			"changes": nil,
+			"message": "无法读取请求体，请检查请求格式",
 		})
 		return
-		return
 	}
-
-	// 将读取的数据重新赋值给 ctx.Request.Body，以便后续处理
+	fmt.Println(string(bodyBytes) + "++++++++++++++++")
 	ctx.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+	//3. 重新设置 ctx.Request.Body，以便后续处理器可以继续读取
+
 	var channelInfo uniqinfo.UhubUniqChannelInfo
 	if err := ctx.ShouldBindJSON(&channelInfo); err != nil {
 		message := fmt.Sprintf("请求解析失败: %v", err)
 		glog.Errorf(message)
-		ctx.JSON(http.StatusBadRequest, gin.H{
+		ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"code":    400,
-			"message": message,
+			"message": "请求格式无效，请检查输入数据",
 		})
 		return
 	}
-
-	ctx.Set("channelInfoSave", channelInfo)
+	ctx.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 	ctx.Next()
 }
 
@@ -507,8 +504,14 @@ func (h *Handle) checkCertAndKey(ctx *gin.Context) error {
 // GetRequestBody 从请求体中读取原始字节数据
 func (h *Handle) GetRequestBody(ctx *gin.Context) (channelInfo *uniqinfo.UhubUniqChannelInfo, err error) {
 	// 1. 读取请求体
-	body, err := io.ReadAll(ctx.Request.Body)
-	ctx.Request.Body = io.NopCloser(bytes.NewBuffer(body))
+	body, err := ctx.GetRawData()
+	if err != nil {
+		glog.Error(err)
+	}
+	fmt.Println(string(body) + "--------------------------------")
+	defer func() {
+		ctx.Request.Body = io.NopCloser(bytes.NewBuffer(body))
+	}()
 	if err != nil {
 		// 返回自定义错误响应
 		var errMsg string
