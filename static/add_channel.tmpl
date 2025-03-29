@@ -192,8 +192,9 @@ function validateAndConfirm() {
     }
 
     // 收集预览数据
+    const channelID=$('#newUniqCloudChannelID').val()
     const previewData = {
-        channelID: $('#newUniqCloudChannelID').val(),
+        channelID: channelID.replace(/^0+/g, ''),
         domain: $('#newUniqCloudDomain').val()
     }
     $('#confirmContent').html(`
@@ -212,8 +213,16 @@ function validateAndConfirm() {
 
 // 提交数据
 function submitNewChannel() {
-    const formData = {
-        uniqCloudChannelID: parseInt($('#newUniqCloudChannelID').val(), 10), // 转换为整数
+     const channel_id = $('#newUniqCloudChannelID').val();
+      // 验证是否为纯数字
+    if ((!/^\d+$/.test(channel_id))  || parseInt(channel_id, 10) === 0||isNaN(parseInt(channel_id, 10))){
+        $('#errorToast .toast-body').text('渠道id必须为纯数字,且不为0');
+         bootstrap.Toast.getInstance('#errorToast').show()
+        return;
+    }
+   const  uniqCloudChannelID=channel_id.replace(/^0+/g, '')//移除前置的0
+    const formData = {   
+        uniqCloudChannelID:  parseInt(uniqCloudChannelID, 10) , 
         uniqCloudDomain: $('#newUniqCloudDomain').val(),
         uniqCloudDomainCrt: $('#newUniqCloudDomainCrt').val(),
         uniqCloudDomainKey: $('#newUniqCloudDomainKey').val(),
@@ -221,14 +230,14 @@ function submitNewChannel() {
         allRegion: $('#newAllRegion').val(),
         deployRegion: $('#newDeployRegion').val()
     }
-
+ var base_prefix = "{{.base_prefix}}";
     $.ajax({
-        url: `/channel/create/${formData.uniqCloudChannelID}`,
+        url:`${base_prefix}/channel/create/${formData.uniqCloudChannelID}`,
         type: 'POST',
         contentType: 'application/json',
         data: JSON.stringify(formData),
         success: function(response) {
-            // 关闭确认模态框
+            // 确认模态框
             const confirmModal = bootstrap.Modal.getInstance('#confirmAddChannelModal')
             confirmModal.hide()
 

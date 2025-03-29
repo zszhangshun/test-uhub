@@ -2,19 +2,16 @@ package server
 
 import (
 	"net/http"
-	"test/api"
-	uerr "test/pkg/error"
+	handler "test/handler"
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/go-playground/validator/v10"
 	"github.com/golang/glog"
 	"gorm.io/gorm"
 )
 
 var (
-	basePath = "/v1/uhub/uniq"
-	validate = validator.New()
+	v1Router = "uhub/v1/"
 )
 
 type RequestCommonParams struct {
@@ -26,7 +23,7 @@ type Server struct {
 	Engine *gin.Engine
 }
 
-func NewServer(h *api.Handle) *Server {
+func NewServer(h *handler.Handle) *Server {
 	if !glog.V(5) {
 		gin.SetMode(gin.ReleaseMode)
 	}
@@ -34,50 +31,51 @@ func NewServer(h *api.Handle) *Server {
 	s := &Server{
 		Engine: r,
 	}
-	s.Engine.Use(ValidateParamsCheck())
-	s.globalRouter(h.Store.DBClient())
-	s.setRoute(h)
+	s.checkHealthRouter(h.Store.DBClient())
+	s.loadTemplate()
+	s.routerGroup(h)
 	return s
 }
-func (s *Server) globalRouter(db *gorm.DB) {
-	s.Engine.Any(basePath+"/health", func(ctx *gin.Context) {
+func (s *Server) routerGroup(h *handler.Handle) {
+	v1 := s.Engine.Group(v1Router, h.Authentication)
+	v1.POST("/channel/flush", h.FlushVaule())
+	//v1.GET("/", h.IndexHtml)
+	v1.GET("/", h.ChannelTotal)
+	v1.POST("/channel/update/:id", h.ValidateParamsCheck, h.UpdateChannelinfo())
+	v1.POST("/channel/create/:id", h.ValidateParamsCheck, h.CreateNewChannel)
+	v1.POST("/channel/delete/:id", h.DeleteChannel)
+
+}
+
+// loadTemplate loads static web resources from the ./static directory
+// and associates them with the gin.Engine so that they may be served
+// when the server is run.
+func (s *Server) loadTemplate() {
+	s.Engine.LoadHTMLGlob(("./static/*.tmpl"))
+	s.Engine.Static("/static", "static")
+	defer func() {
+		if r := recover(); r != nil {
+			msg := "loadTemplate panic recovered: %s"
+			glog.Error(msg, r)
+			panic(msg)
+		}
+	}()
+}
+
+func (s *Server) checkHealthRouter(db *gorm.DB) {
+	s.Engine.Any(v1Router+"/db/health", func(ctx *gin.Context) {
 		dbclient, err := db.DB()
 		if err != nil {
-			ctx.JSON(http.StatusServiceUnavailable, err.Error())
+			ctx.AbortWithError(http.StatusServiceUnavailable, err)
 			return
 		}
 		if err = dbclient.Ping(); err != nil {
-			ctx.JSON(http.StatusServiceUnavailable, err.Error())
+			ctx.AbortWithError(http.StatusServiceUnavailable, err)
 			return
 		}
-		ctx.JSON(http.StatusOK, "check is ok")
+		ctx.JSON(http.StatusOK, " db is ok")
 		return
 
 	})
-
-}
-func (s *Server) setRoute(h *api.Handle) {
-	s.Engine.POST("/channel/flush", h.FlushVaule())
-	s.Engine.Static("/static", "./static")
-	s.Engine.GET("/", h.IndexHtml)
-	s.Engine.LoadHTMLGlob("/static/*.tmpl")
-	s.Engine.GET("/channel", h.ChannelTotal)
-	s.Engine.POST("/channel/update/:id", h.ValidateParamsCheck, h.UpdateChannelinfo())
-	s.Engine.POST("/channel/create/:id", h.ValidateParamsCheck, h.CreateNewChannel)
-	s.Engine.POST("/channel/delete/:id", h.DeleteChannel)
-}
-
-func ValidateParamsCheck() gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-		var params RequestCommonParams
-
-		if err := validate.Struct(params); err != nil {
-			ctx.AbortWithStatusJSON(http.StatusBadRequest, uerr.New(err.Error()))
-			return
-		}
-
-		ctx.Set("validatedParams", params)
-		ctx.Next()
-	}
 
 }

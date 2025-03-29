@@ -15,12 +15,6 @@ import (
 	"gorm.io/gorm"
 )
 
-const (
-	DESCRIBEUNIQINFO = "DescribeUniqInfo"
-	DEPLOYUNIQ       = "DeployUniq"
-	UPDATEINFO       = "UpdateInfo"
-)
-
 type DeleteChannelResponse struct {
 	ChannelID    int    `json:"channel_id"`
 	DeleteStatus string `json:"delete_status"`
@@ -95,6 +89,25 @@ func (h *Handle) applyChanges(changes map[string]string, id int) (err error) {
 		return msg
 	}
 	return nil
+
+}
+
+// 身份认证
+func (h *Handle) Authentication(ctx *gin.Context) {
+	// token := ctx.GetHeader("Authorization")
+	// if token == "" {
+	// 	message := "Token 不能为空"
+	// 	glog.Error(message)
+	// 	ctx.JSON(http.StatusUnauthorized, gin.H{
+	// 		"code":    401,
+	// 		"message": message,
+	// 		"changes": nil,
+	// 	})
+	// 	return
+	// }
+	// // 验证Token
+	// 假设 token 验证通过
+	ctx.Next()
 
 }
 
@@ -241,7 +254,6 @@ func (h *Handle) IndexHtml(ctx *gin.Context) {
 // 渠道总览
 func (h *Handle) ChannelTotal(ctx *gin.Context) {
 	h.flushVaule()
-	area := "10"
 	var currentPage int
 	if ctx.Query("page") != "" {
 		currentPage, _ = strconv.Atoi(ctx.Query("page"))
@@ -250,7 +262,7 @@ func (h *Handle) ChannelTotal(ctx *gin.Context) {
 		currentPage = 1
 	}
 	ctx.HTML(200, "channel.tmpl", gin.H{
-		"area":               area,
+		"base_prefix":        "/uhub/v1",
 		"uhub_uniq_total":    len(h.UhubUniqInfo.Info),
 		"uniq_channel_infos": h.UhubUniqInfo.Info,
 		"uniq_list":          h.UhubUniqInfo.Info,
@@ -278,37 +290,12 @@ func (h *Handle) checkUniqExists(id int) (status bool, err error) {
 
 // 创建新渠道
 func (h *Handle) CreateNewChannel(ctx *gin.Context) {
-	var err error
-	var tx *gorm.DB
-
-	defer func() {
-		if r := recover(); r != nil {
-			if tx != nil {
-				tx.Rollback()
-			}
-			msg := fmt.Sprintf("存储新渠道失败，原因:%s", r)
-			glog.Error(msg)
-			// 设置标志变量为失败状态
-			err = errors.New(msg)
-			ctx.JSON(http.StatusInternalServerError, gin.H{
-				"code":    500,
-				"message": err.Error(),
-			})
-
-			return
-		} else {
-			response := gin.H{
-				"message": "Channel added resposeSentfully",
-			}
-			ctx.JSON(http.StatusOK, response)
-			return
-		}
-	}()
-
+	success := true
 	updateInfoInterface, exists := ctx.Get("updateInfo")
 	if !exists {
 		msg := "上下文中未找到updateInfo"
 		glog.Error(msg)
+		success = false
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"code":    500,
 			"message": msg,
@@ -320,6 +307,7 @@ func (h *Handle) CreateNewChannel(ctx *gin.Context) {
 
 	newChannel, ok := updateInfoInterface.(uniqinfo.UhubUniqChannelInfo)
 	if !ok {
+		success = false
 		message := fmt.Sprintf("类型断言失败: %v", updateInfoInterface)
 		glog.Error(message)
 		ctx.JSON(http.StatusInternalServerError, gin.H{
@@ -336,8 +324,9 @@ func (h *Handle) CreateNewChannel(ctx *gin.Context) {
 		newChannel.ChannelStatus = "1"
 	}
 
-	ok, err = h.checkUniqExists(newChannel.UniqCloudChannelID)
+	ok, err := h.checkUniqExists(newChannel.UniqCloudChannelID)
 	if err != nil {
+		success = false
 		message := fmt.Sprintf("无法创建渠道，原因:%s", err.Error())
 		ctx.JSON(http.StatusConflict, gin.H{
 			"code":    http.StatusConflict,
@@ -347,6 +336,7 @@ func (h *Handle) CreateNewChannel(ctx *gin.Context) {
 		return
 	}
 	if !ok {
+		success = false
 		msg := fmt.Sprintf("检查渠道是否存在失败 id :%d", newChannel.UniqCloudChannelID)
 		glog.Error(msg)
 		ctx.JSON(http.StatusConflict, gin.H{
@@ -360,13 +350,20 @@ func (h *Handle) CreateNewChannel(ctx *gin.Context) {
 	//执行数据库操作
 	err = h.Store.Create(&newChannel)
 	if err != nil {
+		success = false
 		msg := fmt.Sprintf("create channel failed with error: %v", err)
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"code":    500,
 			"message": msg,
 		})
+		return
 	}
-	return
+	if success {
+		ctx.JSON(http.StatusCreated, gin.H{
+			"code":    201,
+			"message": "创建渠道成功",
+		})
+	}
 }
 
 // 删除渠道

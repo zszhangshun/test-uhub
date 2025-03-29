@@ -6,7 +6,7 @@ import (
 	"log"
 	"net/http"
 
-	"test/api"
+	api "test/handler"
 	"test/pkg/config"
 	"test/pkg/uniqinfo"
 

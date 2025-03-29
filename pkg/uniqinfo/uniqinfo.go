@@ -3,20 +3,9 @@ package uniqinfo
 import (
 	"fmt"
 	"reflect"
-	"time"
 
 	"github.com/golang/glog"
 )
-
-var (
-	duration = time.NewTicker(2 * time.Minute) // 定义ticker但不立即发送数据到通道
-	flush    = make(chan bool, 1)
-)
-
-func init() {
-	// 在init函数中进行具有副作用的操作
-	flush <- true
-}
 
 type UhubUniqChannelInfo struct {
 	UniqCloudChannelID int    `json:"uniqCloudChannelID" db:"uniq_cloud_channel_id" gorm:"column:uniq_cloud_channel_id"`

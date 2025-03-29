@@ -7,7 +7,7 @@
             <h1 class="h2 mb-1">Uhub渠道信息</h1>
             <p class="lead text-muted mb-0">当前渠道总数：{{.uhub_uniq_total}}</p>
         </div>
-        {{template "add_channel.tmpl"}}
+        {{template "add_channel.tmpl" .}}
     </div>
 
     <!-- 搜索栏 -->
@@ -81,7 +81,7 @@
 </div>
 
     <!-- 分页 -->
-    <script src="static/bootstrap/js/bootstrapPager.js"></script>
+    <script src="/static/bootstrap/js/bootstrapPager.js"></script>
     <div class="mt-4">
         <script>
             document.write(Pager({
@@ -349,9 +349,9 @@ function showChangesModal(changes, formData) {
 
 function performFinalSave(formData) {
     showLoadingIndicator(true);
-    
+     var base_prefix = "{{.base_prefix}}";
     $.ajax({
-        url: `/channel/update/${formData.uniqCloudChannelID}`,
+        url: `${base_prefix}/channel/update/${formData.uniqCloudChannelID}`,
         type: 'POST',
         headers: { 
             'X-Confirm': 'true',
@@ -416,9 +416,9 @@ function confirmDelete(button) {
 function performDelete() {
     const channelId = $('#deleteConfirmModal').data('channelId');
     showLoadingIndicator(true);
-    
+     var  base_prefix = "{{.base_prefix}}";
     $.ajax({
-        url: `/channel/delete/${channelId}`,
+        url:`${base_prefix}/channel/delete/${channelId}`,
         type: 'POST',
         contentType: 'application/json',
         data: JSON.stringify({'channel_id': channelId,'delete_status': "1"}),

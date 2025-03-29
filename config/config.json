@@ -1,6 +1,6 @@
 {
     "DB": {
-        "host": "host.docker.internal",
+        "host": "127.0.0.1",
         "user": "root",
         "password": "123456",
         "database": "uhub_uniq_info",

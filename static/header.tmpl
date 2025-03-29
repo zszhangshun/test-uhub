@@ -125,13 +125,7 @@
 
             <ul class="nav nav-pills flex-column mb-auto">
                 <li class="nav-item">
-                    <a href="/" class="nav-link text-white {{if eq .CurrentMenu "overview"}}active{{end}}">
-                        <i class="fas fa-tachometer-alt me-2"></i>
-                        系统概览
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a href="/channel" class="nav-link text-white {{if eq .CurrentMenu "channel"}}active{{end}}">
+                    <a href="{{.base_prefix}}" class="nav-link text-white {{if eq .CurrentMenu "channel"}}active{{end}}">
                         <i class="fas fa-network-wired me-2"></i>
                         渠道管理
                         <span class="badge bg-primary rounded-pill ms-2">{{.ChannelCount}}</span>
